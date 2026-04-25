@@ -3,14 +3,14 @@ import type { Article } from "./article-fetcher.js";
 import { generateCover } from "./cover-generator.js";
 
 /**
- * Remove <img> tags with non-HTTP(S) src (data: URIs, relative paths, etc.)
+ * Remove <img> tags with non-HTTP(S) src (data: URIs, protocol-relative, relative paths, etc.)
  * that cause epub-gen-memory's internal fetch to crash.
  */
 function sanitizeImages(html: string): string {
-  return html.replace(/<img\s[^>]*>/gi, (tag) => {
-    const srcMatch = tag.match(/src\s*=\s*["']([^"']+)["']/i);
+  return html.replace(/<img(?:\s[^>]*)?\/?>|<img(?:\s[^>]*)?>\s*<\/img>/gi, (tag) => {
+    const srcMatch = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))/i);
     if (!srcMatch) return ""; // no src → remove
-    const src = srcMatch[1];
+    const src = srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? "";
     if (/^https?:\/\//i.test(src)) return tag; // valid HTTP(S) → keep
     return ""; // data:, //, relative, etc. → remove
   });
@@ -50,6 +50,7 @@ export async function buildEpub(
     date: today,
     description: `Instapaper articles exported on ${today}. Contains ${articles.length} articles.`,
     version: 3,
+    ignoreFailedDownloads: true,
   };
 
   // Generate cover image
